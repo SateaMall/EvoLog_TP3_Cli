@@ -15,6 +15,7 @@ import java.util.Scanner;
  */
 public class App 
 {
+    private static String userId; // Store userId after login
     private static Scanner scanner = new Scanner(System.in);
     private static RestTemplate restTemplate = new RestTemplate();
     private static String baseUrl = "http://localhost:8080/api";
@@ -43,7 +44,11 @@ public class App
             }
         }
     }
-
+    private static HttpHeaders createHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("userId", userId);
+        return headers;
+    }
     private static void register() {
         System.out.println("\n--- Register ---");
         System.out.print("Name: ");
@@ -75,6 +80,7 @@ public class App
         }
     }
 
+
     private static void login() {
         System.out.println("\n--- Login ---");
         System.out.print("Email: ");
@@ -91,6 +97,7 @@ public class App
             ResponseEntity<User> response = restTemplate.postForEntity(
                     baseUrl + "/users/login", user, User.class);
             System.out.println("Login successful! Welcome, " + response.getBody().getName());
+            userId = response.getBody().getId(); // Store userId
             userMenu();
         } catch (Exception ex) {
             System.out.println("Login failed: " + ex.getMessage());
@@ -136,8 +143,9 @@ public class App
 
     private static void displayAllProducts() {
         try {
-            ResponseEntity<Product[]> response = restTemplate.getForEntity(
-                    baseUrl + "/products", Product[].class);
+            HttpEntity<?> entity = new HttpEntity<>(createHeaders());
+            ResponseEntity<Product[]> response = restTemplate.exchange(
+                    baseUrl + "/products", HttpMethod.GET, entity, Product[].class);
             List<Product> products = List.of(response.getBody());
             System.out.println("\n--- All Products ---");
             for (Product product : products) {
@@ -157,8 +165,9 @@ public class App
         String id = scanner.nextLine();
 
         try {
-            ResponseEntity<Product> response = restTemplate.getForEntity(
-                    baseUrl + "/products/" + id, Product.class);
+            HttpEntity<?> entity = new HttpEntity<>(createHeaders());
+            ResponseEntity<Product> response = restTemplate.exchange(
+                    baseUrl + "/products/" + id, HttpMethod.GET, entity, Product.class);
             Product product = response.getBody();
             System.out.println("\n--- Product Details ---");
             System.out.println("ID: " + product.getId());
@@ -169,7 +178,6 @@ public class App
             System.out.println("Product not found: " + ex.getMessage());
         }
     }
-
     private static void addNewProduct() {
         System.out.println("\n--- Add New Product ---");
         System.out.print("Product ID: ");
@@ -199,8 +207,9 @@ public class App
         Product product = new Product(id, name, price, expirationDate);
 
         try {
+            HttpEntity<Product> requestEntity = new HttpEntity<>(product, createHeaders());
             ResponseEntity<Product> response = restTemplate.postForEntity(
-                    baseUrl + "/products", product, Product.class);
+                    baseUrl + "/products", requestEntity, Product.class);
             System.out.println("Product added successfully! Product ID: " + response.getBody().getId());
         } catch (Exception ex) {
             System.out.println("Failed to add product: " + ex.getMessage());
@@ -238,21 +247,20 @@ public class App
         updatedProduct.setExpirationDate(expirationDate);
 
         try {
-            HttpEntity<Product> requestEntity = new HttpEntity<>(updatedProduct);
-            ResponseEntity<Product> response = restTemplate.exchange(
-                    baseUrl + "/products/" + id, HttpMethod.PUT, requestEntity, Product.class);
+            HttpEntity<Product> requestEntity = new HttpEntity<>(updatedProduct, createHeaders());
+            restTemplate.exchange(baseUrl + "/products/" + id, HttpMethod.PUT, requestEntity, Product.class);
             System.out.println("Product updated successfully!");
         } catch (Exception ex) {
             System.out.println("Failed to update product: " + ex.getMessage());
         }
     }
-
     private static void deleteProduct() {
         System.out.print("Enter Product ID to delete: ");
         String id = scanner.nextLine();
 
         try {
-            restTemplate.delete(baseUrl + "/products/" + id);
+            HttpEntity<?> entity = new HttpEntity<>(createHeaders());
+            restTemplate.exchange(baseUrl + "/products/" + id, HttpMethod.DELETE, entity, Void.class);
             System.out.println("Product deleted successfully!");
         } catch (Exception ex) {
             System.out.println("Failed to delete product: " + ex.getMessage());
